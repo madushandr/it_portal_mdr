@@ -72,7 +72,7 @@ values
    }'::jsonb);
 ~~~
 
-After the administrator can sign in, create later staff accounts directly from **System Users → Register System User**. Choose **No Access**, **View Only**, or **Full Edit** for each module. The portal stores the login in Supabase Auth and the module permissions in the matching profile. Usernames must be lowercase and unique.
+After the administrator can sign in, create later staff accounts directly from **System Users → Register System User**. Choose **No Access**, **View Only**, or **Full Edit** for each module. The portal stores the login in Supabase Auth and the module permissions in the matching profile. Usernames must be 4–32 characters, lowercase, and unique; letters, numbers, dots, underscores, and hyphens are allowed.
 
 ## 3. Connect a personal Google Drive
 

@@ -39,7 +39,8 @@ function getSecretKey() {
 }
 
 function validUsername(value: unknown): value is string {
-  return typeof value === "string" && /^[a-z0-9][a-z0-9._-]{2,31}$/.test(value);
+  // First character plus 3–31 more characters gives a 4–32 character username.
+  return typeof value === "string" && /^[a-z0-9][a-z0-9._-]{3,31}$/.test(value);
 }
 
 function makePermissions(access: unknown) {
@@ -98,7 +99,7 @@ Deno.serve(async (request) => {
   if (action !== "create" && action !== "update") return json({ error: "Unknown user action." }, 400);
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
-  if (!validUsername(username)) return json({ error: "Use a username with 3–32 lowercase letters, numbers, dots, underscores or hyphens." }, 400);
+  if (!validUsername(username)) return json({ error: "Use a username with 4–32 lowercase letters, numbers, dots, underscores or hyphens." }, 400);
   if (!fullName || fullName.length > 120) return json({ error: "Enter a full name up to 120 characters." }, 400);
 
   const permissions = makePermissions(body.access);
