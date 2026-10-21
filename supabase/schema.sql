@@ -3,6 +3,7 @@
 
 create extension if not exists pgcrypto;
 
+-- PROFILE TABLE: connects each Supabase Auth account to its portal username and module permissions.
 create table if not exists public.portal_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique,
@@ -13,6 +14,7 @@ create table if not exists public.portal_profiles (
   updated_at timestamptz not null default now()
 );
 
+-- RECORD TABLE: stores each module entry as JSON so different modules can have different fields.
 create table if not exists public.portal_records (
   id uuid primary key default gen_random_uuid(),
   module text not null,
@@ -26,6 +28,7 @@ create table if not exists public.portal_records (
 create index if not exists portal_records_module_updated_idx on public.portal_records(module, updated_at desc);
 create index if not exists portal_records_created_by_idx on public.portal_records(created_by);
 
+-- FILE METADATA: Google Drive keeps the private file; this table stores its portal link and details.
 create table if not exists public.portal_files (
   id uuid primary key default gen_random_uuid(),
   record_id uuid not null references public.portal_records(id) on delete cascade,
@@ -41,6 +44,7 @@ create table if not exists public.portal_files (
 create index if not exists portal_files_record_idx on public.portal_files(record_id, created_at desc);
 create index if not exists portal_files_module_idx on public.portal_files(module);
 
+-- AUDIT TABLE: records who changed which portal module and when.
 create table if not exists public.portal_activity_log (
   id bigint generated always as identity primary key,
   actor_id uuid references auth.users(id) on delete set null,
@@ -53,6 +57,7 @@ create table if not exists public.portal_activity_log (
 
 create index if not exists portal_activity_created_idx on public.portal_activity_log(created_at desc);
 
+-- PERMISSION HELPER: returns true for administrators or profiles with the requested module permission.
 create or replace function public.portal_can_access(p_module text, p_action text)
 returns boolean
 language sql
@@ -74,6 +79,7 @@ $$;
 revoke all on function public.portal_can_access(text, text) from public;
 grant execute on function public.portal_can_access(text, text) to authenticated;
 
+-- UPDATED-AT TRIGGER FUNCTION: refreshes updated_at whenever a profile or record is changed.
 create or replace function public.portal_touch_updated_at()
 returns trigger
 language plpgsql
@@ -95,6 +101,7 @@ create trigger portal_records_touch_updated_at
 before update on public.portal_records
 for each row execute function public.portal_touch_updated_at();
 
+-- AUDIT TRIGGER FUNCTION: creates an activity entry after any portal record insert, update, or delete.
 create or replace function public.portal_record_audit()
 returns trigger
 language plpgsql
@@ -131,6 +138,7 @@ create trigger portal_records_audit
 after insert or update or delete on public.portal_records
 for each row execute function public.portal_record_audit();
 
+-- ROW-LEVEL SECURITY: enable policies before granting authenticated users access to portal data.
 alter table public.portal_profiles enable row level security;
 alter table public.portal_records enable row level security;
 alter table public.portal_files enable row level security;
@@ -143,6 +151,7 @@ grant select, insert, delete on public.portal_files to authenticated;
 grant select on public.portal_activity_log to authenticated;
 grant usage, select on sequence public.portal_activity_log_id_seq to authenticated;
 
+-- PROFILE POLICIES: users can read their own profile; approved user managers can manage staff profiles.
 drop policy if exists "profiles read own or admin" on public.portal_profiles;
 create policy "profiles read own or admin"
 on public.portal_profiles for select to authenticated
@@ -164,6 +173,7 @@ create policy "admins delete profiles"
 on public.portal_profiles for delete to authenticated
 using (public.portal_can_access('user_management', 'edit'));
 
+-- RECORD POLICIES: module view permission controls reading; module edit permission controls changes.
 drop policy if exists "records view by module permission" on public.portal_records;
 create policy "records view by module permission"
 on public.portal_records for select to authenticated
@@ -185,6 +195,7 @@ create policy "records delete by module permission"
 on public.portal_records for delete to authenticated
 using (public.portal_can_access(module, 'edit'));
 
+-- FILE POLICIES: file metadata is visible only when its record's module is available to the user.
 drop policy if exists "files view by module permission" on public.portal_files;
 create policy "files view by module permission"
 on public.portal_files for select to authenticated
@@ -218,6 +229,7 @@ using (
   )
 );
 
+-- AUDIT POLICY: the audit log is readable only by profiles granted activity_log view access.
 drop policy if exists "activity log view by permission" on public.portal_activity_log;
 create policy "activity log view by permission"
 on public.portal_activity_log for select to authenticated

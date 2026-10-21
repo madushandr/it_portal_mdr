@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// IMPORT SETTINGS: values for this one-time CSV migration; keep the Supabase secret key private.
 const baseUrl = process.env.SUPABASE_URL;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
 const adminUserId = process.env.PORTAL_ADMIN_USER_ID;
@@ -12,6 +13,7 @@ if (!baseUrl || !secretKey || !adminUserId) {
   process.exit(1);
 }
 
+// CSV PARSER: read quoted cells, commas, and newlines without an extra package.
 function parseCsv(text) {
   const rows = [];
   let row = [], cell = "", quoted = false;
@@ -31,6 +33,7 @@ function parseCsv(text) {
   return rows.filter(r => r.some(v => String(v).trim() !== ""));
 }
 
+// FIELD MAPPING: normalize sheet column names to the portal's record field keys.
 function keyFor(header) {
   const key = String(header || "").trim().toLowerCase()
     .replace(/&/g, "and")
@@ -49,6 +52,7 @@ function keyFor(header) {
   return aliases[key] || key;
 }
 
+// SUPABASE WRITE: submit a batch of prepared record rows using the temporary server secret.
 async function postRows(rows) {
   const response = await fetch(baseUrl.replace(/\/$/, "") + "/rest/v1/portal_records", {
     method: "POST",
@@ -63,12 +67,14 @@ async function postRows(rows) {
   if (!response.ok) throw new Error(response.status + " " + await response.text());
 }
 
+// IMPORT ALLOWLIST: only ordinary portal data modules can be imported; auth and audit tables are excluded.
 const safeModules = new Set([
   "hardware_inventory","non_asset_inventory","hardware_dispatch","support_tickets","remote_desktop",
   "licenses","network_voice","toner_inventory","toner_transactions","spare_parts","supplier_payments",
   "monthly_payments","it_documents","handover_records","notification_settings","handover_settings"
 ]);
 
+// IMPORT LOOP: read one CSV per module, convert each row, and send batches of at most 50 records.
 const files = (await readdir(csvFolder)).filter(name => name.toLowerCase().endsWith(".csv"));
 if (!files.length) {
   console.error("No CSV files found. Put one module CSV per file in migration/csv/.");

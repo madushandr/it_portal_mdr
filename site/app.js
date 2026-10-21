@@ -1,6 +1,7 @@
 (function () {
   "use strict";
   const config=window.PORTAL_CONFIG||{},$=function(id){return document.getElementById(id);};
+  // MODULE CATALOG: each entry defines a portal section's fields and its table columns.
   const modules=[
     {key:"hardware_inventory",label:"Hardware Assets",description:"Computer, printer, phone and other IT asset register.",fields:[["asset_id","Asset ID","text",true],["asset_type","Asset type","text",true],["brand_model","Brand / model"],["serial_number","Serial number"],["assigned_employee","Assigned employee"],["location","Location"],["status","Status","select",false,["Active","In Store","Under Repair","Retired"]],["processor","Processor"],["ram","RAM"],["storage_type","Storage type"],["storage_capacity","Storage capacity"],["notes","Operational notes","textarea"]],columns:["asset_id","asset_type","brand_model","serial_number","assigned_employee","location","status"]},
     {key:"non_asset_inventory",label:"Non-Asset Details",description:"Track consumables and items outside the fixed asset register.",fields:[["record_id","Record ID"],["item_type","Item type","text",true],["item_name","Item name","text",true],["brand_model","Brand / model"],["serial_number","Serial / part number"],["quantity","Quantity","number"],["unit","Unit"],["location","Location"],["assigned_to","Assigned to"],["status","Status"],["condition","Condition"],["purchase_date","Purchase date","date"],["vendor","Vendor"],["invoice_ref","Invoice / reference"],["unit_cost","Unit cost","number"],["notes","Notes","textarea"]],columns:["record_id","item_type","item_name","quantity","unit","location","assigned_to","status"]},
@@ -19,23 +20,28 @@
     {key:"notification_settings",label:"Notifications",description:"Keep notification recipients and settings. Automated email sending needs a separate mail provider.",fields:[["name","Setting / recipient","text",true],["email","Email","email"],["module_name","Module"],["enabled","Enabled","select",false,["Yes","No"]],["details","Details","textarea"]],columns:["name","email","module_name","enabled","created_at"]},
     {key:"handover_settings",label:"Handover Settings",description:"Store handover instruction text and process notes.",fields:[["title","Title","text",true],["content","Instructions","textarea",true],["updated_by","Updated by"]],columns:["title","updated_by","updated_at"]}
   ];
+  // SESSION STATE: the signed-in account, its portal profile, current section, and loaded rows.
   let client=null,session=null,profile=null,activeModule=null,records=[],specialRows=[],editingRow=null;
   const specialModules=new Set(["user_management","activity_log"]);
+  // SHARED HELPERS: safe HTML display, messages, profile permissions, and module access labels.
   function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
   function show(el,text){el.textContent=text||"";el.classList.toggle("hidden",!text);}
   function notify(text){show($("globalMessage"),text);$("globalError").classList.add("hidden");window.setTimeout(function(){$("globalMessage").classList.add("hidden");},5500);}
   function fail(text){show($("globalError"),text);$("globalMessage").classList.add("hidden");}
   function can(key,action){return !!(profile&&(profile.is_admin||(profile.permissions&&profile.permissions[key]&&profile.permissions[key][action]===true)));}
   function getModule(key){
-    if(key==="user_management")return {key:key,label:"System Users",description:"Manage portal profiles for Supabase Auth accounts.",columns:["username","full_name","is_admin","permissions"],fields:[]};
+    if(key==="user_management")return {key:key,label:"System Users",description:"Create staff logins and choose which portal modules they can use.",columns:["username","full_name","is_admin","permissions"],fields:[]};
     if(key==="activity_log")return {key:key,label:"Activity Log",description:"Audit trail of changes made in this portal.",columns:["created_at","module","action","record_id","actor_id"],fields:[]};
     return modules.find(function(m){return m.key===key;});
   }
   function availableModules(){let out=modules.filter(function(m){return can(m.key,"view");});if(can("user_management","view"))out.push(getModule("user_management"));if(can("activity_log","view"))out.push(getModule("activity_log"));return out;}
   function displayValue(v){if(v==null||v==="")return "—";if(typeof v==="object")return JSON.stringify(v);return String(v);}
   function permissionSummary(p){return Object.keys(p||{}).filter(function(k){return p[k]&&p[k].view;}).join(", ")||"No module access";}
+  const accessLabels={hardware_inventory:"Hardware Assets",non_asset_inventory:"Non-Asset Details (Records)",hardware_dispatch:"Hardware Asset Dispatch",support_tickets:"IT Support Tickets",remote_desktop:"Remote Desktop",licenses:"Licenses & Domains",network_voice:"Network & Voice",toner_inventory:"Toner Management",toner_transactions:"Toner Transactions",spare_parts:"Spare Parts Stock",supplier_payments:"Supplier Payments / Finance",monthly_payments:"Telecom Monthly Payments",it_documents:"IT Documents",handover_records:"Handover Records",notification_settings:"Notifications",handover_settings:"Handover Settings"};
+  function permissionLevel(p,key,isAdmin){if(isAdmin)return "edit";const x=p&&p[key];return x&&x.edit===true?"edit":x&&x.view===true?"view":"none";}
   function showLogin(){$("loginView").classList.remove("hidden");$("appView").classList.add("hidden");$("loginForm").reset();}
   function showApp(){$("loginView").classList.add("hidden");$("appView").classList.remove("hidden");$("who").textContent=(profile.full_name||profile.username||session.user.email)+" · "+(profile.is_admin?"Administrator":"Portal user");buildNavigation();show($("globalError"),"");show($("globalMessage"),"");showDashboard();}
+  // NAVIGATION AND DASHBOARD: show only permitted modules and display their Supabase record counts.
   function buildNavigation(){
     const entries=[{key:"dashboard",label:"Overview"}].concat(availableModules());
     $("moduleNav").innerHTML=entries.map(function(e){return '<button type="button" data-nav="'+esc(e.key)+'">'+esc(e.label)+"</button>";}).join("");
@@ -59,9 +65,9 @@
     $("dashboardView").classList.add("hidden");$("moduleView").classList.remove("hidden");
     $("moduleTitle").textContent=activeModule.label;$("moduleDescription").textContent=activeModule.description;
     $("moduleNav").querySelectorAll("button").forEach(function(b){b.classList.toggle("active",b.dataset.nav===key);});
-    $("addRecordButton").classList.toggle("hidden",!can(key,"edit")||key==="activity_log");
+    $("addRecordButton").classList.toggle("hidden",!can(key,"edit")||key==="activity_log");$("addRecordButton").textContent=key==="user_management"?"+ Register System User":"+ New record";
     $("moduleNotice").classList.toggle("hidden",!(key==="user_management"||key==="activity_log"));
-    if(key==="user_management")$("moduleNotice").textContent="Create the staff login in Supabase Dashboard > Authentication first. Then add that Auth user UUID here and set module permissions as JSON.";
+    if(key==="user_management")$("moduleNotice").textContent="Use Register System User to create a staff login and select module access. Staff sign in with their username and password.";
     if(key==="activity_log")$("moduleNotice").textContent="Read-only audit entries are created automatically when portal records change.";
     $("recordSearch").value="";await loadModuleRecords();
   }
@@ -74,6 +80,7 @@
     if(result.error){fail(result.error.message);$("recordRows").innerHTML='<tr><td class="empty" colspan="20">Could not load records.</td></tr>';return;}
     await renderRows();
   }
+  // TABLE RENDERING: format module rows, search results, file counts, and available edit buttons.
   function rowObject(r){
     if(activeModule.key==="activity_log")return {id:r.id,created_at:r.created_at,module:r.module,action:r.action,record_id:r.record_id,actor_id:r.actor_id,details:r.details};
     if(activeModule.key==="user_management")return {id:r.id,username:r.username,full_name:r.full_name,is_admin:r.is_admin,permissions:permissionSummary(r.permissions),_profile:r};
@@ -110,7 +117,9 @@
     if(type==="select")return '<div class="field"><label for="f_'+esc(key)+'">'+esc(label)+(required?" *":"")+'</label><select id="f_'+esc(key)+'" data-field="'+esc(key)+'"'+attr+'><option value="">Choose…</option>'+opts.map(function(o){return '<option value="'+esc(o)+'"'+(String(o)===val?" selected":"")+'>'+esc(o)+"</option>";}).join("")+"</select></div>";
     return '<div class="field"><label for="f_'+esc(key)+'">'+esc(label)+(required?" *":"")+'</label><input id="f_'+esc(key)+'" data-field="'+esc(key)+'" type="'+esc(type)+'" value="'+esc(val)+'"'+attr+"></div>";
   }
+  // RECORD AND USER FORMS: build either a normal module form or the Register System User panel.
   function openRecordModal(row){
+    $("recordModalBox").classList.remove("user-modal");$("closeModalButton").textContent="Close";$("saveRecordButton").textContent="Save record";
     editingRow=row||null;const data=row&&row.data?row.data:{};
     $("recordModalTitle").textContent=row?"Edit "+activeModule.label:"New "+activeModule.label+" record";
     $("recordModalSubtitle").textContent=row?"Record ID: "+row.id:"Complete details and save.";
@@ -119,11 +128,10 @@
     show($("modalError"),"");$("recordModal").classList.remove("hidden");$("recordForm").onsubmit=saveRecord;loadExistingFiles(row&&row.id);
   }
   function openProfileModal(row){
-    editingRow=row||null;const p=row||{},fields=[["id","Supabase Auth user UUID","text",true],["username","Portal username","text",true],["full_name","Full name","text",true],["is_admin","Administrator","select",true,["false","true"]],["permissions","Permissions JSON","textarea",false]];
-    const vals={id:p.id,username:p.username,full_name:p.full_name,is_admin:String(!!p.is_admin),permissions:JSON.stringify(p.permissions||{},null,2)};
-    $("recordModalTitle").textContent=row?"Edit portal user":"Add profile for an existing Auth user";$("recordModalSubtitle").textContent="Create this staff login in Supabase Auth first.";
-    $("recordFields").innerHTML=fields.map(function(f){return fieldMarkup(f,vals[f[0]]);}).join("");
-    $("attachmentSection").classList.add("hidden");$("generatePdfButton").classList.add("hidden");show($("modalError"),"");$("recordModal").classList.remove("hidden");$("recordForm").onsubmit=saveProfile;
+    editingRow=row||null;const p=row||{},levels=modules.map(function(m){const key=m.key,label=accessLabels[key]||m.label,value=permissionLevel(p.permissions,key,!!p.is_admin),hint=key==="support_tickets"?"Full Edit lets staff manage all tickets.":"";return '<div class="user-access-row"><div>'+esc(label)+(hint?'<small>'+esc(hint)+"</small>":"")+'</div><div><label class="sr-only" for="user_access_'+esc(key)+'">'+esc(label)+' access</label><select id="user_access_'+esc(key)+'" data-access-module="'+esc(key)+'"><option value="none"'+(value==="none"?" selected":"")+'>No Access</option><option value="view"'+(value==="view"?" selected":"")+'>View Only</option><option value="edit"'+(value==="edit"?" selected":"")+'>Full Edit</option></select></div></div>';}).join("");
+    $("recordModalBox").classList.add("user-modal");$("closeModalButton").textContent="×";$("recordModalTitle").textContent=row?"Edit System User":"Register System User";$("recordModalSubtitle").textContent="";
+    $("recordFields").innerHTML='<div class="user-top-fields"><label class="sr-only" for="user_username">Username (lowercase)</label><input class="user-input" id="user_username" type="text" autocomplete="off" autocapitalize="none" placeholder="Username (Lowercase)" pattern="[a-z0-9][a-z0-9._-]{2,31}" title="Use 3–32 lowercase letters, numbers, dots, underscores or hyphens." required value="'+esc(p.username||"")+'">'+(row?"":'<label class="sr-only" for="user_password">Password</label><input class="user-input" id="user_password" type="password" autocomplete="new-password" minlength="8" placeholder="Password (at least 8 characters)" required>')+'<label class="sr-only" for="user_full_name">Full Name</label><input class="user-input" id="user_full_name" type="text" autocomplete="name" placeholder="Full Name" required value="'+esc(p.full_name||"")+'"></div><div class="user-access-box"><div class="user-access-title">Module Access Allocation</div><div class="user-access-help">Set each module independently: no access, view only, or full edit.</div><div class="user-access-list">'+levels+'</div></div>'+(row&&p.is_admin?'<div class="subtle" style="margin:0 0 12px">This account is an administrator; its administrator access remains enabled.</div>':"");
+    $("attachmentSection").classList.add("hidden");$("generatePdfButton").classList.add("hidden");$("saveRecordButton").textContent=row?"Save User Changes":"Create Authorized User";show($("modalError"),"");$("recordModal").classList.remove("hidden");$("recordForm").onsubmit=saveProfile;
   }
   async function loadExistingFiles(recordId){
     $("existingFiles").innerHTML="";if(!recordId||!activeModule||specialModules.has(activeModule.key))return;
@@ -148,16 +156,25 @@
     catch(err){show($("modalError"),"Record saved, but file upload failed: "+err.message);await loadExistingFiles(saved.id);return;}
     $("recordModal").classList.add("hidden");notify("Record saved.");await loadModuleRecords();
   }
+  // USER MANAGEMENT: send account creation/profile updates to the protected Supabase Edge Function.
   async function saveProfile(e){
     e.preventDefault();if(!can("user_management","edit"))return;
-    const v={};$("recordFields").querySelectorAll("[data-field]").forEach(function(el){v[el.dataset.field]=el.value.trim();});
-    let permissions={};try{permissions=v.permissions?JSON.parse(v.permissions):{};if(!permissions||Array.isArray(permissions)||typeof permissions!=="object")throw new Error("Use a JSON object.");}catch(err){show($("modalError"),"Permissions JSON is invalid: "+err.message);return;}
-    const payload={username:v.username,full_name:v.full_name,is_admin:v.is_admin==="true",permissions:permissions};
-    const r=editingRow?await client.from("portal_profiles").update(payload).eq("id",editingRow.id).select().single():await client.from("portal_profiles").insert({id:v.id,...payload}).select().single();
-    if(r.error){show($("modalError"),r.error.message);return;}
-    $("recordModal").classList.add("hidden");notify("Portal profile saved.");await loadModuleRecords();buildNavigation();
+    const username=$("user_username").value.trim().toLowerCase(),fullName=$("user_full_name").value.trim(),password=$("user_password")?$("user_password").value:"";
+    if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)){show($("modalError"),"Username must be 3–32 lowercase letters, numbers, dots, underscores or hyphens.");return;}
+    if(!editingRow&&password.length<8){show($("modalError"),"Password must be at least 8 characters.");return;}
+    const access={};$("recordFields").querySelectorAll("[data-access-module]").forEach(function(el){if(el.value!=="none")access[el.dataset.accessModule]=el.value;});
+    const btn=$("saveRecordButton");btn.disabled=true;btn.textContent=editingRow?"Saving…":"Creating…";show($("modalError"),"");
+    try{await managePortalUser(editingRow?"update":"create",{userId:editingRow&&editingRow.id,username:username,fullName:fullName,password:editingRow?undefined:password,access:access});
+      $("recordModal").classList.add("hidden");notify(editingRow?"User profile updated.":"Authorized user created. They can sign in with their username and password.");await loadModuleRecords();buildNavigation();
+    }catch(err){show($("modalError"),err.message||"Could not save this user.");}
+    btn.disabled=false;btn.textContent=editingRow?"Save User Changes":"Create Authorized User";
+  }
+  async function managePortalUser(action,payload){
+    const r=await fetch(config.supabaseUrl+"/functions/v1/manage-users",{method:"POST",headers:{apikey:config.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:action},payload||{}))});
+    const data=await parseResponse(r);if(!r.ok)throw new Error(data.error||"User management request failed.");return data;
   }
   async function parseResponse(r){const t=r.headers.get("content-type")||"";if(t.includes("application/json"))return await r.json();return {error:(await r.text())||r.statusText};}
+  // GOOGLE DRIVE FILES: authenticated requests for upload, download, and removal of private attachments.
   async function driveRequest(action,payload){
     const r=await fetch(config.supabaseUrl+"/functions/v1/drive-files",{method:"POST",headers:{apikey:config.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},body:JSON.stringify(Object.assign({action:action},payload||{}))});
     const data=await parseResponse(r);if(!r.ok)throw new Error(data.error||"Google Drive request failed.");return data;
@@ -187,6 +204,7 @@
     const r=await client.from("portal_records").delete().eq("id",id);if(r.error){fail(r.error.message);return;}
     notify("Record deleted.");await loadModuleRecords();
   }
+  // PDF AND CSV TOOLS: make a basic record PDF and export the current table as CSV.
   async function generatePdf(){
     if(!editingRow){show($("modalError"),"Save the record before generating a PDF.");return;}
     if(!window.jspdf||!window.jspdf.jsPDF){show($("modalError"),"PDF library did not load. Check internet and retry.");return;}
@@ -206,9 +224,11 @@
     const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
     a.href=URL.createObjectURL(blob);a.download=activeModule.key+".csv";a.click();URL.revokeObjectURL(a.href);
   }
+  // SUPABASE AUTH: email or username sign-in, portal profile loading, sign-out, and initial UI wiring.
   async function signIn(e){
     e.preventDefault();show($("loginError"),"");const b=$("loginButton");b.disabled=true;b.textContent="Signing in…";
-    const r=await client.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});b.disabled=false;b.textContent="Sign in";
+    const entered=$("email").value.trim(),email=entered.indexOf("@")>=0?entered:entered.toLowerCase()+"@portal.hpl.invalid";
+    const r=await client.auth.signInWithPassword({email:email,password:$("password").value});b.disabled=false;b.textContent="Sign in";
     if(r.error){show($("loginError"),r.error.message);return;}await loadCurrentProfile(r.data.session);
   }
   async function loadCurrentProfile(next){

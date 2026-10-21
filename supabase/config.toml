@@ -1,4 +1,10 @@
+# Supabase CLI project name; `supabase link` connects it to the real project reference.
 project_id = "hpl-portal"
 
+# Require a signed-in Supabase user JWT for private Google Drive file operations.
 [functions.drive-files]
+verify_jwt = true
+
+# Require a signed-in JWT; the function then checks that the caller is a portal administrator.
+[functions.manage-users]
 verify_jwt = true

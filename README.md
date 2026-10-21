@@ -2,17 +2,17 @@
 
 This folder contains the complete code for the new portal version included here:
 
-- Supabase email/password sign-in and per-module permissions
+- Supabase username/password sign-in for portal-created staff accounts, email/password sign-in for existing accounts, and per-module permissions
 - record create, view, edit, delete, search and CSV export across the listed IT portal modules
 - private personal Google Drive file upload, download and removal through Google OAuth
 - a generated PDF form for a saved portal record, uploaded to Google Drive
-- Supabase audit log and a basic administrator profile screen
+- Supabase audit log and an administrator panel for creating staff logins and setting module permissions
 
 ## Important scope note
 
 This is a new Cloudflare/Supabase portal foundation based on the modules in your uploaded HPL portal. It is **not a line-for-line conversion of every old Google Apps Script feature**. The uploaded backend contains many custom workflows. This version does not yet reproduce its scheduled email alerts, Gmail ticket routing/replies, detailed toner stock calculations, printer page history, remote desktop launch/access links, original handover/dispatch PDF layouts, or every dashboard calculation. Keep the old portal available until the missing workflows have been migrated and checked.
 
-The existing Apps Script login uses usernames and passwords from a Google Sheet. This version uses Supabase Auth email/password accounts. Old passwords are not imported. Create new Auth accounts for staff.
+The existing Apps Script passwords are not imported. The first administrator is still created in Supabase Auth manually. After that, administrators can register staff from the **System Users** panel using a username, password, full name, and module access selections. Existing Auth accounts can continue to sign in using their email.
 
 ## Project files
 
@@ -27,6 +27,8 @@ supabase/
   config.toml
   functions/
     drive-files/
+      index.ts
+    manage-users/
       index.ts
 migration/
   connect-personal-drive.mjs
@@ -70,7 +72,7 @@ values
    }'::jsonb);
 ~~~
 
-To create a later staff account, first add them under **Authentication → Users**, then open **System Users** in the portal and add their Auth user UUID with their module permissions. The portal does not create Auth accounts itself.
+After the administrator can sign in, create later staff accounts directly from **System Users → Register System User**. Choose **No Access**, **View Only**, or **Full Edit** for each module. The portal stores the login in Supabase Auth and the module permissions in the matching profile. Usernames must be lowercase and unique.
 
 ## 3. Connect a personal Google Drive
 
@@ -106,7 +108,7 @@ Treat all four values as private. Never put them in **site/config.js**, GitHub, 
 
 The function keeps each Drive file private and checks the signed-in portal user's module permissions before upload, download, or removal. The Google OAuth owner account's My Drive quota is used.
 
-## 4. Deploy the Drive Function
+## 4. Deploy the Supabase Functions
 
 From the project folder, use PowerShell:
 
@@ -114,9 +116,12 @@ From the project folder, use PowerShell:
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase functions deploy drive-files
+npx supabase functions deploy manage-users
 ~~~
 
-Replace **YOUR_PROJECT_REF** with the part before **.supabase.co** in the Supabase Project URL. The Function secrets above must already be saved in Supabase. Uploading the repository to GitHub does not deploy this Function.
+Replace **YOUR_PROJECT_REF** with the part before **.supabase.co** in the Supabase Project URL. The Google Function secrets above must already be saved in Supabase. The user-management function uses Supabase's server-side secret automatically; never copy that secret into the website or GitHub. Uploading the repository to GitHub does not deploy these Functions.
+
+The staff account panel only lets portal administrators create users. The Edge Function checks the signed-in administrator before it creates an Auth account. For staff created in this panel, the login email is an internal `@portal.hpl.invalid` address; staff sign in by entering the username and password. Existing accounts can still sign in with their email. Because the internal address cannot receive mail, a forgotten staff password must be reset by an administrator in **Supabase → Authentication → Users**.
 
 ## 6. Check the website settings
 
@@ -134,7 +139,7 @@ Only the publishable key belongs in this browser file. Never use a Supabase secr
 3. Use the repository root as the **Root directory** (leave it blank/default), **exit 0** as the build command, and **site** as the build output directory.
 4. Deploy. Cloudflare Pages will publish **site/index.html**.
 5. In Supabase **Authentication → URL Configuration**, add your Cloudflare Pages address to the allowed site/redirect URLs.
-6. Sign in using the administrator Auth email and password.
+6. Sign in using the administrator Auth email and password, then register staff from the portal's **System Users** panel.
 
 The Edge Function is deployed to Supabase with the CLI; uploading the repository to GitHub does not deploy that function automatically.
 

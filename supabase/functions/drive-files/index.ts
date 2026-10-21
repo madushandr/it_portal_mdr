@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// FILE FUNCTION SETTINGS: browser CORS headers, allowed modules, accepted file types, and size limits.
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -19,9 +20,11 @@ const allowedMimeTypes = new Set([
   "application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]);
 
+// JSON RESPONSE HELPER: returns consistent success and error messages to the portal browser.
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
+// GOOGLE OAUTH: exchange the private refresh token for a temporary Google Drive access token.
 async function getGoogleAccessToken() {
   const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
   const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
@@ -45,6 +48,7 @@ async function getGoogleAccessToken() {
   }
   return tokenData.access_token as string;
 }
+// ACCESS AND FILE HELPERS: apply the portal's module permissions and clean Drive filenames.
 function can(profile: Record<string, unknown>, module: string, action: "view" | "edit") {
   if (profile.is_admin === true) return true;
   const permissions = profile.permissions && typeof profile.permissions === "object" ? profile.permissions as Record<string, Record<string, unknown>> : {};
@@ -65,6 +69,7 @@ async function driveCall(url: string, token: string, init?: RequestInit) {
   return response;
 }
 
+// REQUEST HANDLER: authenticates the staff profile and routes requests to Drive operations.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Use POST for Drive actions." }, 405);
@@ -116,6 +121,7 @@ Deno.serve(async (req) => {
       fileId = String(body.fileId || "");
     }
 
+    // UPLOAD: check module edit access, upload into the private folder, and save file metadata.
     if (action === "upload") {
       if (!file || !recordId || !allowedModules.has(module)) return json({ error: "A valid module, record and file are required." }, 400);
       if (!can(profile, module, "edit") || !can(profile, module, "view")) return json({ error: "You do not have permission to attach files to this module." }, 403);
@@ -165,6 +171,7 @@ Deno.serve(async (req) => {
       return json({ success: true, file: metadata.data });
     }
 
+    // DOWNLOAD OR DELETE: check module permissions before accessing the private Drive file.
     if (action === "download" || action === "delete") {
       if (!fileId) return json({ error: "A file ID is required." }, 400);
       const lookup = await userClient.from("portal_files")
@@ -186,7 +193,7 @@ Deno.serve(async (req) => {
         if (removed.error) return json({ error: "Drive file deleted, but portal metadata could not be removed: " + removed.error.message }, 500);
         return json({ success: true });
       }
-      const downloaded = await driveCall(driveUrl + "&alt=media", token, { method: "GET" });
+      const downloaded = await driveCall(driveUrl + "?alt=media", token, { method: "GET" });
       return new Response(downloaded.body, {
         status: 200,
         headers: {
@@ -199,6 +206,7 @@ Deno.serve(async (req) => {
     }
     return json({ error: "Unknown action. Use upload, download or delete." }, 400);
   } catch (error) {
+    // ERROR HANDLING: report a readable failure without returning any private OAuth secrets.
     console.error("personal-drive-files error:", error instanceof Error ? error.message : String(error));
     return json({ error: error instanceof Error ? error.message : "Unexpected Drive service error." }, 500);
   }

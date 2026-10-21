@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 
+// INPUT: read the downloaded Desktop OAuth client JSON; it is used locally and must stay private.
 const clientJsonPath = process.argv[2];
 if (!clientJsonPath) {
   console.error("Usage: node migration/connect-personal-drive.mjs <path-to-downloaded-oauth-client-json>");
@@ -16,6 +17,7 @@ if (!client?.client_id || !client?.client_secret) {
   process.exit(1);
 }
 
+// PKCE AND STATE: protect the local OAuth callback from forged or intercepted authorization responses.
 const state = randomBytes(32).toString("base64url");
 const verifier = randomBytes(48).toString("base64url");
 const challenge = createHash("sha256").update(verifier).digest("base64url");
@@ -27,6 +29,7 @@ const callbackResult = new Promise((resolve, reject) => {
   callbackReject = reject;
 });
 
+// LOCAL CALLBACK SERVER: receive Google's one-time authorization code on this computer.
 const server = createServer((req, res) => {
   const requestUrl = new URL(req.url || "/", "http://127.0.0.1");
   if (requestUrl.pathname !== "/") {
@@ -68,6 +71,7 @@ const address = server.address();
 if (!address || typeof address === "string") throw new Error("Could not start the local OAuth callback.");
 const redirectUri = "http://127.0.0.1:" + address.port;
 
+// GOOGLE CONSENT: request permission only for Drive files created by this portal app.
 const authorizationUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
 authorizationUrl.search = new URLSearchParams({
   client_id: client.client_id,
@@ -86,6 +90,7 @@ console.log("A browser window will open. Sign in to the personal Google account 
 console.log("If it does not open, copy this URL into your browser:");
 console.log(authorizationUrl.toString());
 
+// OPEN BROWSER: start the account authorization page automatically when possible.
 try {
   if (process.platform === "win32") {
     const browser = spawn("rundll32.exe", ["url.dll,FileProtocolHandler", authorizationUrl.toString()], { detached: true, stdio: "ignore" });
@@ -104,6 +109,7 @@ try {
   // The URL is printed above if a browser cannot be opened automatically.
 }
 
+// TOKEN EXCHANGE: trade the callback code for a refresh token for the Supabase Drive Function.
 const timeout = setTimeout(() => callbackReject(new Error("OAuth timed out. Run this command again and finish Google sign-in within five minutes.")), 5 * 60 * 1000);
 try {
   const code = await callbackResult;
@@ -127,6 +133,7 @@ try {
     throw new Error("Google did not return a refresh token. Revoke this app in your Google Account permissions, then run this setup again.");
   }
 
+  // DESTINATION FOLDER: create the private folder and print the values to save as Supabase Function secrets.
   const folderResponse = await fetch("https://www.googleapis.com/drive/v3/files?fields=id,name", {
     method: "POST",
     headers: {
