@@ -1,0 +1,4 @@
+project_id = "hpl-portal"
+
+[functions.drive-files]
+verify_jwt = true

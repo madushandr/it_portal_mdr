@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HPL Enterprise IT Portal</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#172033;background:#f3f6fb}
+    *{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{cursor:pointer}
+    .shell{min-height:100vh;display:grid;grid-template-columns:250px 1fr}.side{background:#0f172a;color:#e2e8f0;padding:22px 14px;display:flex;flex-direction:column;gap:18px}
+    .brand{font-weight:900;font-size:18px;padding:8px 12px}.nav{display:grid;gap:5px}.nav button{border:0;text-align:left;border-radius:9px;padding:10px 12px;background:transparent;color:#cbd5e1;font-weight:650}
+    .nav button:hover,.nav button.active{background:#1e293b;color:white}.nav button.active{box-shadow:inset 3px 0 #60a5fa}.side-foot{margin-top:auto;font-size:12px;color:#94a3b8;padding:10px 12px}
+    .main{min-width:0}.top{height:68px;background:white;border-bottom:1px solid #e2e8f0;padding:0 26px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+    .top .who{color:#475569;font-size:14px}.page{max-width:1400px;margin:0 auto;padding:28px}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+    h1{font-size:25px;margin:0 0 6px}h2{font-size:18px;margin:0 0 14px}.muted{color:#64748b}.card{background:white;border:1px solid #dce4ef;border-radius:14px;padding:20px;box-shadow:0 5px 18px #0f172a0a}
+    .button{border:0;border-radius:9px;padding:10px 14px;background:#2563eb;color:white;font-weight:750}.button:hover{background:#1d4ed8}.button.secondary{background:#e2e8f0;color:#334155}.button.secondary:hover{background:#cbd5e1}.button.danger{background:#b91c1c}.button.small{font-size:12px;padding:7px 10px}
+    .button:disabled{opacity:.55;cursor:wait}.hidden{display:none!important}.notice,.error{border-radius:10px;padding:12px 14px;margin:12px 0;line-height:1.5}.notice{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .login-wrap{max-width:460px;margin:9vh auto}.field{display:grid;gap:6px;margin:13px 0}.field label{font-size:13px;font-weight:750;color:#475569}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid #cbd5e1;border-radius:8px;background:white}
+    .field textarea{min-height:92px;resize:vertical}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}.wide{grid-column:1/-1}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}.stat{padding:18px;background:white;border:1px solid #dce4ef;border-radius:12px}.stat strong{display:block;font-size:25px;color:#1d4ed8}.stat span{color:#64748b;font-size:12px;font-weight:750;text-transform:uppercase}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:16px 0}.toolbar input{width:min(360px,100%);padding:10px 12px;border:1px solid #cbd5e1;border-radius:9px}.table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:11px;background:white}
+    table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{text-align:left;padding:11px 12px;border-bottom:1px solid #e2e8f0}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}td{font-size:13px}tbody tr:last-child td{border:0}.empty{text-align:center;color:#64748b;padding:28px}
+    .pill{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:750;background:#e0f2fe;color:#075985}.row-actions{display:flex;gap:6px}
+    .modal{position:fixed;inset:0;background:#0f172a99;display:flex;align-items:center;justify-content:center;padding:20px;z-index:30}.modal-box{background:white;border-radius:15px;width:min(850px,100%);max-height:90vh;overflow:auto;padding:22px}
+    .file-list{display:grid;gap:8px;margin:10px 0}.file-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px}
+    .check{display:flex;gap:8px;align-items:center}.check input{width:auto}.subtle{font-size:12px;color:#64748b}.module-note{padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;color:#475569;font-size:13px;margin-top:10px}
+    @media(max-width:850px){.shell{grid-template-columns:1fr}.side{padding:12px;gap:8px}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap}.side-foot{display:none}.top{height:58px;padding:0 16px}.page{padding:18px}.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:560px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.stats{grid-template-columns:1fr 1fr}.page{padding:12px}.card{padding:15px}.top .who{font-size:12px}}
+  </style>
+</head>
+<body>
+  <section id="loginView" class="page login-wrap">
+    <div class="card">
+      <div class="brand" style="padding:0 0 16px;color:#0f172a">HPL Enterprise IT Portal</div>
+      <h1>Sign in</h1>
+      <p class="muted">Use the email and password created for your portal account.</p>
+      <div id="setupNotice" class="notice hidden"></div>
+      <div id="loginError" class="error hidden" role="alert"></div>
+      <form id="loginForm">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+        <button id="loginButton" class="button" style="width:100%">Sign in</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="appView" class="shell hidden">
+    <aside class="side">
+      <div class="brand">HPL IT PORTAL</div>
+      <nav id="moduleNav" class="nav"></nav>
+      <div class="side-foot">Files are kept in private Google Drive storage.<br>Portal data is managed in Supabase.</div>
+    </aside>
+    <section class="main">
+      <header class="top">
+        <div id="who" class="who"></div>
+        <button id="signOutButton" class="button secondary small">Sign out</button>
+      </header>
+      <main class="page">
+        <div id="globalMessage" class="notice hidden" role="status"></div>
+        <div id="globalError" class="error hidden" role="alert"></div>
+        <section id="dashboardView">
+          <div class="page-head"><div><h1>Portal overview</h1><div class="muted">Quick view of the modules you can access.</div></div></div>
+          <div id="stats" class="stats"></div>
+          <div class="card"><h2>Getting started</h2><p class="muted">Choose a module from the left menu. Create a record, then attach images, generated forms or documents. Attachments are stored privately in Google Drive.</p><p class="subtle">The administrator controls module access. If a module is missing, ask the administrator to update your profile permissions.</p></div>
+        </section>
+        <section id="moduleView" class="hidden">
+          <div class="page-head">
+            <div><h1 id="moduleTitle"></h1><div id="moduleDescription" class="muted"></div></div>
+            <div><button id="addRecordButton" class="button">+ New record</button></div>
+          </div>
+          <div id="moduleNotice" class="module-note hidden"></div>
+          <div class="toolbar"><strong id="recordCount">0 records</strong><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="recordSearch" type="search" placeholder="Search this module"><button id="exportButton" class="button secondary small">Export CSV</button></div></div>
+          <div class="table-wrap"><table><thead id="recordHead"></thead><tbody id="recordRows"></tbody></table></div>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <div id="recordModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="page-head" style="margin-bottom:6px"><div><h2 id="recordModalTitle">New record</h2><div id="recordModalSubtitle" class="subtle"></div></div><button id="closeModalButton" class="button secondary small" type="button">Close</button></div>
+      <div id="modalError" class="error hidden"></div>
+      <form id="recordForm">
+        <div id="recordFields" class="grid"></div>
+        <div id="attachmentSection" class="field wide">
+          <label for="fileInput">Attach files to Google Drive</label>
+          <input id="fileInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+          <div class="subtle">Upload one or more images or documents (maximum 20 MB per file).</div>
+          <div id="existingFiles" class="file-list"></div>
+        </div>
+        <div class="actions">
+          <button id="generatePdfButton" class="button secondary hidden" type="button">Generate PDF form</button>
+          <button id="saveRecordButton" class="button" type="submit">Save record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
